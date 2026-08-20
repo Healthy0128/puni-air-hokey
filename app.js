@@ -5,10 +5,10 @@ const DT=1/120,S={run:0,pause:0,last:0,acc:0,w:1,h:1,dpr:1,score:[0,0],win:5,sha
 let cfg={bgm:true,sfx:true,points:5};try{cfg={...cfg,...JSON.parse(localStorage.getItem('puniSettings')||'{}')}}catch{}
 const P=[0,1].map(i=>({i,x:0,y:0,tx:0,ty:0,vx:0,vy:0,ivx:0,ivy:0,t:0,pid:null,r:44,m:2.8,j:0,jv:0,face:0,g:0,sp:0,color:i?'#ff6fae':'#4cc9ff',dark:i?'#d73778':'#168ed6'}));
 const K={x:0,y:0,vx:0,vy:0,r:20,m:1,max:1750,spin:0};const keys=new Set();
-class Audio{constructor(){this.ctx=null;this.out=null;this.bgm=null;this.ready=0;this.fallback=null;this.hitT=0;this.wallT=0}
+class GameAudio{constructor(){this.ctx=null;this.out=null;this.bgm=null;this.ready=0;this.fallback=null;this.hitT=0;this.wallT=0}
 unlock(){const AC=window.AudioContext||window.webkitAudioContext;if(!this.ctx&&AC){this.ctx=new AC();this.out=this.ctx.createGain();this.out.gain.value=.34;this.out.connect(this.ctx.destination)}if(this.ctx?.state==='suspended')this.ctx.resume().catch(()=>{});if(cfg.bgm)this.start()}
 tone(f,d=.05,v=.05,type='sine',delay=0){if(!cfg.sfx||!this.ctx)return;const o=this.ctx.createOscillator(),g=this.ctx.createGain(),t=this.ctx.currentTime+delay;o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(this.out);o.start(t);o.stop(t+d)}
-start(){if(!this.bgm){const a=new Audio('./assets/audio/bgm/mahou-no-cooking.mp3');a.loop=true;a.preload='auto';a.volume=.28;a.oncanplay=()=>{this.ready=1;this.stopFallback();if(cfg.bgm)a.play().catch(()=>{})};a.onerror=()=>this.startFallback();this.bgm=a}if(this.ready)this.bgm.play().catch(()=>{});else{this.bgm.load();setTimeout(()=>{if(!this.ready&&cfg.bgm)this.startFallback()},700)}}
+start(){if(!this.bgm){const a=new window.Audio('./assets/audio/bgm/mahou-no-cooking.mp3');a.loop=true;a.preload='auto';a.volume=.28;a.oncanplay=()=>{this.ready=1;this.stopFallback();if(cfg.bgm)a.play().catch(()=>{})};a.onerror=()=>this.startFallback();this.bgm=a}if(this.ready)this.bgm.play().catch(()=>{});else{this.bgm.load();setTimeout(()=>{if(!this.ready&&cfg.bgm)this.startFallback()},700)}}
 stop(){this.bgm?.pause();this.stopFallback()}
 resume(){if(this.ctx?.state==='suspended')this.ctx.resume().catch(()=>{});if(cfg.bgm&&this.ready)this.bgm?.play().catch(()=>{})}
 startFallback(){if(this.fallback||!this.ctx)return;let n=0,q=[262,330,392,523,392,330,294,349,440,587,440,349];this.fallback=setInterval(()=>{if(cfg.bgm)this.tone(q[n++%q.length],.1,.012,'square')},170)}stopFallback(){clearInterval(this.fallback);this.fallback=null}
@@ -17,7 +17,7 @@ hit(kind,p=1){let t=performance.now();if(t-this.hitT<22)return;this.hitT=t;if(ki
 wall(p=1){let t=performance.now();if(t-this.wallT<30)return;this.wallT=t;this.tone(120+p*18,.035,.035,'triangle')}
 goal(){this.duck(.5,550);[523,659,784,1046].forEach((f,i)=>this.tone(f,.15,.1,'triangle',i*.05))}
 special(){this.duck(.35,420);[330,440,660,880].forEach((f,i)=>this.tone(f,.11,.07,'triangle',i*.04))}}
-const A=new Audio();
+const A=new GameAudio();
 function save(){try{localStorage.setItem('puniSettings',JSON.stringify(cfg))}catch{}syncUI()}
 function syncUI(){[['#bgmToggle','bgm'],['#sfxToggle','sfx']].forEach(([id,k])=>{let e=$(id);if(e){e.classList.toggle('on',cfg[k]);e.textContent=cfg[k]?'ON':'OFF'}});if($('#pointsSelect'))$('#pointsSelect').value=cfg.points;S.win=+cfg.points||5;specialUI()}
 function rr(p){return p.r*(p.sp?1.34:1)}function pm(p){return p.m*(p.sp?1.7:1)}
