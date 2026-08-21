@@ -17,11 +17,30 @@ function wavURL(kind){
   for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.max(-32767,Math.min(32767,s[i]*27000)),true);
   return URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
 }
-const pools={};
-for(const kind of ['hit','smash','goal']){const url=wavURL(kind),vol=kind==='goal'?.72:kind==='smash'?.68:.56;pools[kind]=Array.from({length:5},()=>{const a=new Audio(url);a.preload='auto';a.volume=vol;return a})}
+const sounds={};
+for(const kind of ['hit','smash','goal']){
+  const a=new Audio(wavURL(kind));
+  a.preload='auto';a.playsInline=true;a.volume=kind==='goal'?.78:kind==='smash'?.72:.62;
+  sounds[kind]=a;
+}
+function sfxOn(){try{return JSON.parse(localStorage.getItem('puniSettings')||'{}').sfx!==false}catch{return true}}
 let unlocked=false;
-function unlock(){if(unlocked)return;unlocked=true;for(const pool of Object.values(pools))for(const a of pool){const vol=a.volume;a.volume=.001;const p=a.play();if(p?.then)p.then(()=>{a.pause();a.currentTime=0;a.volume=vol}).catch(()=>{a.volume=vol});else{a.pause();a.currentTime=0;a.volume=vol}}}
-['pointerdown','touchstart','click'].forEach(ev=>document.addEventListener(ev,unlock,{capture:true,passive:true,once:true}));
-let ix={hit:0,smash:0,goal:0},last=0;
-window.PuniSE={play(kind='hit',power=1){const now=performance.now();if(kind!=='goal'&&now-last<24)return;last=now;const pool=pools[kind]||pools.hit,a=pool[ix[kind]++%pool.length];try{a.pause();a.currentTime=0;a.playbackRate=kind==='hit'?Math.max(.9,Math.min(1.22,.94+power*.04)):1;const p=a.play();p?.catch?.(()=>{})}catch{}}};
+function unlock(){
+  if(unlocked)return;
+  unlocked=true;
+  for(const a of Object.values(sounds)){
+    const vol=a.volume;a.volume=.001;
+    try{const p=a.play();p?.then?.(()=>{a.pause();a.currentTime=0;a.volume=vol}).catch(()=>{a.volume=vol})}catch{a.volume=vol}
+  }
+}
+document.addEventListener('pointerdown',unlock,{capture:true,passive:true});
+document.addEventListener('touchstart',unlock,{capture:true,passive:true});
+document.addEventListener('click',unlock,{capture:true,passive:true});
+let last=0;
+window.PuniSE={play(kind='hit',power=1){
+  if(!sfxOn())return;
+  const now=performance.now();if(kind!=='goal'&&now-last<24)return;last=now;
+  const a=sounds[kind]||sounds.hit;
+  try{a.pause();a.currentTime=0;a.playbackRate=kind==='hit'?Math.max(.9,Math.min(1.22,.94+power*.04)):1;const p=a.play();p?.catch?.(()=>{})}catch{}
+}};
 })();
