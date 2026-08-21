@@ -1,0 +1,32 @@
+name: Wire media SE
+on:
+  push:
+    paths:
+      - '.github/workflows/wire-media-se.yml'
+  workflow_dispatch:
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch app.js
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app.js')
+          s=p.read_text()
+          s=s.replace("A.hit(sm?'smash':gr?'graze':'normal',imp);", "window.PuniSE?.play(sm?'smash':'hit',imp);")
+          s=s.replace("A.goal();", "window.PuniSE?.play('goal');")
+          s=s.replace("A.special();", "window.PuniSE?.play('smash',3);")
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app.js
+          git diff --cached --quiet || git commit -m 'Use media element SE on iPhone'
+          git push
