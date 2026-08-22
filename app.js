@@ -326,7 +326,7 @@ function collidePuckWithPlayer(player) {
   if (newStrike) { addGauge(player, (smash ? 15 : graze ? 6 : 9) + impact * 2.4); player.gaugeCooldown = smash ? 0.24 : 0.18; }
   player.squashV -= ny * (0.8 + impact * 0.5); player.face = 0.16; audio.playSe(smash ? 'smash' : 'hit', impact);
   particles(puck.x, puck.y, smash ? '#fff1a3' : player.color, smash ? 18 : graze ? 4 : 7);
-  if (smash) { puck.boost = Math.max(puck.boost, 0.18); state.hitstop = Math.max(state.hitstop, player.burst ? 0.045 : 0.032); state.shake = Math.max(state.shake, 0.5); state.flash = Math.max(state.flash, 0.2); }
+  if (smash) { puck.boost = Math.max(puck.boost, 0.18); state.shake = Math.max(state.shake, 0.5); state.flash = Math.max(state.flash, 0.2); }
 }
 
 function collideMallets() {
@@ -385,12 +385,11 @@ function update(dt) {
   }
   if (state.phase !== PHASE.PLAYING) { updateEffects(dt); return; }
   applyKeyboard(dt);
-  if (state.hitstop > 0) { state.hitstop = Math.max(0, state.hitstop - dt); state.accumulator = 0; updateEffects(dt); return; }
   state.accumulator = Math.min(MAX_FRAME, state.accumulator + dt);
   let steps = 0;
   while (state.accumulator >= FIXED_DT && steps < MAX_STEPS) {
     const roundEnded = physicsStep(FIXED_DT); state.accumulator -= FIXED_DT; steps++;
-    if (roundEnded || state.phase !== PHASE.PLAYING || state.hitstop > 0) { state.accumulator = 0; break; }
+    if (roundEnded || state.phase !== PHASE.PLAYING) { state.accumulator = 0; break; }
   }
   updateEffects(dt);
 }
@@ -398,75 +397,52 @@ function update(dt) {
 function drawField() {
   const w = state.width, h = state.height, goalWidth = Math.min(w * 0.38, 240), goalX = (w - goalWidth) / 2;
   const gradient = ctx.createLinearGradient(0, 0, 0, h); gradient.addColorStop(0, '#4c203d'); gradient.addColorStop(0.5, '#20213f'); gradient.addColorStop(1, '#17324e');
-  ctx.fillStyle = gradient; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = 'rgba(255,255,255,.34)'; ctx.lineWidth = 4; ctx.setLineDash([12, 14]);
-  ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(w / 2, h / 2, Math.min(72, Math.min(w, h) * 0.16), 0, Math.PI * 2); ctx.stroke();
-  ctx.lineWidth = 9; ctx.strokeStyle = '#ff77b5'; ctx.beginPath(); ctx.moveTo(goalX, 0); ctx.lineTo(goalX + goalWidth, 0); ctx.stroke();
-  ctx.strokeStyle = '#69d7ff'; ctx.beginPath(); ctx.moveTo(goalX, h); ctx.lineTo(goalX + goalWidth, h); ctx.stroke();
-  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(goalX, 0, goalWidth, 14); ctx.fillRect(goalX, h - 14, goalWidth, 14);
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0,w,h); ctx.strokeStyle = 'rgba(255,255,255,.34)'; ctx.lineWidth = 4; ctx.setLineDash([12,14]);
+  ctx.beginPath(); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.arc(w/2,h/2,Math.min(72,Math.min(w,h)*.16),0,Math.PI*2); ctx.stroke();
+  ctx.lineWidth=9; ctx.strokeStyle='#ff77b5'; ctx.beginPath(); ctx.moveTo(goalX,0); ctx.lineTo(goalX+goalWidth,0); ctx.stroke();
+  ctx.strokeStyle='#69d7ff'; ctx.beginPath(); ctx.moveTo(goalX,h); ctx.lineTo(goalX+goalWidth,h); ctx.stroke();
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(goalX,0,goalWidth,14); ctx.fillRect(goalX,h-14,goalWidth,14);
 }
 function drawPuck() {
-  const gradient = ctx.createRadialGradient(puck.x - puck.r * 0.35, puck.y - puck.r * 0.4, 2, puck.x, puck.y, puck.r);
-  gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.18, '#fff4a8'); gradient.addColorStop(0.52, '#ffd44d'); gradient.addColorStop(1, '#f38b3e');
-  ctx.shadowColor = '#ffd44daa'; ctx.shadowBlur = 18 + Math.min(12, Math.hypot(puck.vx, puck.vy) / 120); ctx.fillStyle = gradient;
-  ctx.beginPath(); ctx.arc(puck.x, puck.y, puck.r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  const gradient=ctx.createRadialGradient(puck.x-puck.r*.35,puck.y-puck.r*.4,2,puck.x,puck.y,puck.r);
+  gradient.addColorStop(0,'#fff'); gradient.addColorStop(.18,'#fff4a8'); gradient.addColorStop(.52,'#ffd44d'); gradient.addColorStop(1,'#f38b3e');
+  ctx.shadowColor='#ffd44daa'; ctx.shadowBlur=18+Math.min(12,Math.hypot(puck.vx,puck.vy)/120); ctx.fillStyle=gradient; ctx.beginPath(); ctx.arc(puck.x,puck.y,puck.r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
 }
-function drawPlayer(player) {
-  const r = playerRadius(player), speed = Math.min(1.3, Math.hypot(player.vx, player.vy) / 1200), angle = Math.atan2(player.vy, player.vx);
-  ctx.save(); ctx.translate(player.x, player.y);
-  if (player.burst) { ctx.strokeStyle = player.color; ctx.globalAlpha = 0.5; ctx.lineWidth = 5; ctx.shadowColor = player.color; ctx.shadowBlur = 22; ctx.beginPath(); ctx.arc(0, 0, r * 1.14 * (1 + 0.05 * Math.sin(performance.now() * 0.012)), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; ctx.shadowBlur = 0; }
-  ctx.rotate(angle); ctx.scale(Math.max(0.7, 1 + speed * 0.11 - player.squash * 0.2), Math.max(0.7, 1 - speed * 0.05 + player.squash));
-  const gradient = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.08, 0, 0, r); gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.12, player.burst ? '#fff7ba' : player.color); gradient.addColorStop(1, player.dark);
-  ctx.fillStyle = gradient; ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.93, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-  ctx.save(); ctx.translate(player.x, player.y); if (player.i === 1) ctx.rotate(Math.PI); ctx.fillStyle = '#17213a'; ctx.beginPath();
-  ctx.arc(-r * 0.22, -r * 0.1, r * 0.065, 0, Math.PI * 2); ctx.arc(r * 0.22, -r * 0.1, r * 0.065, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#17213a'; ctx.lineWidth = Math.max(3, r * 0.07); ctx.beginPath(); ctx.arc(0, r * 0.14, r * 0.2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); ctx.restore();
+function drawPlayer(player){
+  const r=playerRadius(player),speed=Math.min(1.3,Math.hypot(player.vx,player.vy)/1200),angle=Math.atan2(player.vy,player.vx);
+  ctx.save(); ctx.translate(player.x,player.y);
+  if(player.burst){ctx.strokeStyle=player.color;ctx.globalAlpha=.5;ctx.lineWidth=5;ctx.shadowColor=player.color;ctx.shadowBlur=22;ctx.beginPath();ctx.arc(0,0,r*1.14*(1+.05*Math.sin(performance.now()*.012)),0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.shadowBlur=0}
+  ctx.rotate(angle);ctx.scale(Math.max(.7,1+speed*.11-player.squash*.2),Math.max(.7,1-speed*.05+player.squash));
+  const gradient=ctx.createRadialGradient(-r*.3,-r*.35,r*.08,0,0,r);gradient.addColorStop(0,'#fff');gradient.addColorStop(.12,player.burst?'#fff7ba':player.color);gradient.addColorStop(1,player.dark);
+  ctx.fillStyle=gradient;ctx.beginPath();ctx.ellipse(0,0,r,r*.93,0,0,Math.PI*2);ctx.fill();ctx.restore();
+  ctx.save();ctx.translate(player.x,player.y);if(player.i===1)ctx.rotate(Math.PI);ctx.fillStyle='#17213a';ctx.beginPath();ctx.arc(-r*.22,-r*.1,r*.065,0,Math.PI*2);ctx.arc(r*.22,-r*.1,r*.065,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#17213a';ctx.lineWidth=Math.max(3,r*.07);ctx.beginPath();ctx.arc(0,r*.14,r*.2,.15*Math.PI,.85*Math.PI);ctx.stroke();ctx.restore();
 }
-function draw() {
-  ctx.save(); if (state.shake) { const amount = state.shake * 5; ctx.translate((Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount); }
-  drawField(); state.trail.forEach((item) => { ctx.globalAlpha = item.life / 0.15 * 0.24; ctx.fillStyle = '#ffe46b'; ctx.beginPath(); ctx.arc(item.x, item.y, puck.r * 0.7, 0, Math.PI * 2); ctx.fill(); });
-  ctx.globalAlpha = 1; drawPuck(); players.forEach(drawPlayer);
-  state.particles.forEach((item) => { ctx.globalAlpha = Math.max(0, item.life / 0.7); ctx.fillStyle = item.color; ctx.beginPath(); ctx.arc(item.x, item.y, item.size, 0, Math.PI * 2); ctx.fill(); });
-  ctx.globalAlpha = 1; if (state.flash) { ctx.fillStyle = `rgba(255,255,255,${state.flash * 0.12})`; ctx.fillRect(0, 0, state.width, state.height); } ctx.restore();
-}
+function draw(){ctx.save();if(state.shake){const amount=state.shake*5;ctx.translate((Math.random()-.5)*amount,(Math.random()-.5)*amount)}drawField();state.trail.forEach(item=>{ctx.globalAlpha=item.life/.15*.24;ctx.fillStyle='#ffe46b';ctx.beginPath();ctx.arc(item.x,item.y,puck.r*.7,0,Math.PI*2);ctx.fill()});ctx.globalAlpha=1;drawPuck();players.forEach(drawPlayer);state.particles.forEach(item=>{ctx.globalAlpha=Math.max(0,item.life/.7);ctx.fillStyle=item.color;ctx.beginPath();ctx.arc(item.x,item.y,item.size,0,Math.PI*2);ctx.fill()});ctx.globalAlpha=1;if(state.flash){ctx.fillStyle=`rgba(255,255,255,${state.flash*.12})`;ctx.fillRect(0,0,state.width,state.height)}ctx.restore()}
 
-function startLoop() { if (state.rafId !== null) return; state.last = performance.now(); state.rafId = requestAnimationFrame(loop); }
-function stopLoop() { if (state.rafId !== null) cancelAnimationFrame(state.rafId); state.rafId = null; }
-function loop(now) {
-  state.rafId = null; if (!state.running) return;
-  const dt = Math.min(MAX_FRAME, (now - state.last) / 1000 || 1 / 60); state.last = now;
-  if (!state.paused) update(dt); draw(); state.rafId = requestAnimationFrame(loop);
-}
+function startLoop(){if(state.rafId!==null)return;state.last=performance.now();state.rafId=requestAnimationFrame(loop)}
+function stopLoop(){if(state.rafId!==null)cancelAnimationFrame(state.rafId);state.rafId=null}
+function loop(now){state.rafId=null;if(!state.running)return;const dt=Math.min(MAX_FRAME,(now-state.last)/1000||1/60);state.last=now;if(!state.paused)update(dt);draw();state.rafId=requestAnimationFrame(loop)}
 
-canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
-canvas.addEventListener('pointermove', onPointerMove, { passive: false });
-['pointerup', 'pointercancel', 'lostpointercapture'].forEach((name) => canvas.addEventListener(name, onPointerUp));
-$('#startBtn').onclick = startGame;
-$('#howBtn').onclick = () => $('#howOverlay').classList.add('show');
-$('#settingsBtn').onclick = () => $('#settingsOverlay').classList.add('show');
-document.querySelectorAll('.close').forEach((button) => { button.onclick = () => button.closest('.overlay').classList.remove('show'); });
-$('#pauseBtn').onclick = pauseGame; $('#resumeBtn').onclick = resumeGame; $('#restartBtn').onclick = restartGame; $('#titleBtn').onclick = goHome; $('#againBtn').onclick = restartGame; $('#resultTitleBtn').onclick = goHome;
-function bindBurstButton(id, index) {
-  const button = $(id); if (!button) return;
-  button.addEventListener('pointerdown', (event) => { event.preventDefault(); event.stopPropagation(); activateBurst(index); }, { passive: false });
-  button.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); });
-}
-bindBurstButton('#specialBtn1', 0); bindBurstButton('#specialBtn2', 1);
-$('#bgmToggle').onclick = () => { settings.bgm = !settings.bgm; audio.setBgmEnabled(settings.bgm); saveSettings(); };
-$('#sfxToggle').onclick = () => { settings.sfx = !settings.sfx; if (settings.sfx) audio.unlock(); saveSettings(); };
-$('#pointsSelect').onchange = (event) => { settings.points = +event.target.value || 5; saveSettings(); };
-window.addEventListener('keydown', (event) => {
-  const controlled = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyP', 'Escape', 'KeyQ', 'Enter'];
-  if (controlled.includes(event.code)) event.preventDefault();
-  if (event.code === 'KeyQ') return activateBurst(0); if (event.code === 'Enter') return activateBurst(1);
-  if (event.code === 'KeyP' || event.code === 'Escape') { if (state.running && !state.paused) pauseGame(); else if (state.paused && $('#pauseOverlay').classList.contains('show')) resumeGame(); return; }
-  keys.add(event.code); audio.resume();
-}, { passive: false });
-window.addEventListener('keyup', (event) => keys.delete(event.code));
-window.addEventListener('blur', () => { keys.clear(); if (state.running && !state.paused && state.phase !== PHASE.GAME_OVER) pauseGame(); });
-window.addEventListener('resize', resize); window.visualViewport?.addEventListener('resize', resize);
-document.addEventListener('visibilitychange', () => { if (document.hidden && state.running && !state.paused && state.phase !== PHASE.GAME_OVER) pauseGame(); else if (!document.hidden) audio.resume(); });
-document.addEventListener('contextmenu', (event) => { if (state.running) event.preventDefault(); });
-document.addEventListener('dragstart', (event) => event.preventDefault());
-if (matchMedia('(pointer:fine)').matches) document.body.classList.add('has-keyboard');
-syncUI(); resize();
+canvas.addEventListener('pointerdown',onPointerDown,{passive:false});
+canvas.addEventListener('pointermove',onPointerMove,{passive:false});
+['pointerup','pointercancel','lostpointercapture'].forEach(name=>canvas.addEventListener(name,onPointerUp));
+$('#startBtn').onclick=startGame;
+$('#howBtn').onclick=()=>$('#howOverlay').classList.add('show');
+$('#settingsBtn').onclick=()=>$('#settingsOverlay').classList.add('show');
+document.querySelectorAll('.close').forEach(button=>{button.onclick=()=>button.closest('.overlay').classList.remove('show')});
+$('#pauseBtn').onclick=pauseGame;$('#resumeBtn').onclick=resumeGame;$('#restartBtn').onclick=restartGame;$('#titleBtn').onclick=goHome;$('#againBtn').onclick=restartGame;$('#resultTitleBtn').onclick=goHome;
+function bindBurstButton(id,index){const button=$(id);if(!button)return;button.addEventListener('pointerdown',event=>{event.preventDefault();event.stopPropagation();activateBurst(index)},{passive:false});button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation()})}
+bindBurstButton('#specialBtn1',0);bindBurstButton('#specialBtn2',1);
+$('#bgmToggle').onclick=()=>{settings.bgm=!settings.bgm;audio.setBgmEnabled(settings.bgm);saveSettings()};
+$('#sfxToggle').onclick=()=>{settings.sfx=!settings.sfx;if(settings.sfx)audio.unlock();saveSettings()};
+$('#pointsSelect').onchange=event=>{settings.points=+event.target.value||5;saveSettings()};
+window.addEventListener('keydown',event=>{const controlled=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyP','Escape','KeyQ','Enter'];if(controlled.includes(event.code))event.preventDefault();if(event.code==='KeyQ')return activateBurst(0);if(event.code==='Enter')return activateBurst(1);if(event.code==='KeyP'||event.code==='Escape'){if(state.running&&!state.paused)pauseGame();else if(state.paused&&$('#pauseOverlay').classList.contains('show'))resumeGame();return}keys.add(event.code);audio.resume()},{passive:false});
+window.addEventListener('keyup',event=>keys.delete(event.code));
+window.addEventListener('blur',()=>{keys.clear();if(state.running&&!state.paused&&state.phase!==PHASE.GAME_OVER)pauseGame()});
+window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',resize);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.running&&!state.paused&&state.phase!==PHASE.GAME_OVER)pauseGame();else if(!document.hidden)audio.resume()});
+document.addEventListener('contextmenu',event=>{if(state.running)event.preventDefault()});
+document.addEventListener('dragstart',event=>event.preventDefault());
+if(matchMedia('(pointer:fine)').matches)document.body.classList.add('has-keyboard');
+syncUI();resize();
 })();
